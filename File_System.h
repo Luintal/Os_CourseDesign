@@ -97,7 +97,7 @@ void headFile(int num); // 显示文件的前 num 行
 void tailFile(int num); // 显示文件尾巴上的 num 行
 void importFile(const string& localPath, const string& virtualName);
 void exportFile(const string& virtualName, const string& localPath);
-void userInteraction();
+void userInteraction();//用户交互
 void diskOperation();
 
 

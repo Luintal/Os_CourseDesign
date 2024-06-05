@@ -10,6 +10,7 @@ string openFileName = ""; // 初始化当前打开的文件名
 mutex diskMutex;
 condition_variable cv;
 bool exitFlag = false;
+queue<string> commandQueue;
 
 // 打印帮助信息
 void printHelp() {
@@ -170,6 +171,8 @@ bool saveDisk(const string& path) {
     file.close();
     return true;
 }
+
+
 
 // 初始化磁盘
 void initDisk() {
@@ -775,199 +778,225 @@ void exportFile(const string& virtualName, const string& localPath) {
     cout << "文件 " << virtualName << " 不存在于虚拟磁盘。" << endl;
 }
 
+// 显示提示符
+void showPrompt() {
+    cout << "[" << (currentUser ? currentUser->username + "@" : "") << getCurrentPath() << "] ";
+}
+
 // 用户交互线程
 void userInteraction() {
     string input;
-    while (true) {
+    while (!exitFlag) {
         {
-            unique_lock<mutex> lock(diskMutex);
-            cout << "[" << (currentUser ? currentUser->username + "@" : "") << getCurrentPath() << "] ";
-            getline(cin, input);
-            if (input == "exit") {
+            lock_guard<mutex> lock(diskMutex);
+            //showPrompt();
+        }
+        getline(cin, input);
+        showPrompt();
+        if (input == "exit") {
+            {
+                //lock_guard<mutex> lock(diskMutex);
                 exitFlag = true;
+                commandQueue.push("exit");
                 cv.notify_one();
-                break;
             }
+            break;
         }
-        vector<string> command = inputResolve(input);
-        if (command.empty()) continue;
-
-        if (!openFileName.empty()) {
-            if (command[0] == "read") readFile();
-            else if (command[0] == "write") writeFile();
-            else if (command[0] == "close") closeFile();
-            else if (command[0] == "lseek") {
-                if (command.size() < 2) {
-                    cout << "用法: lseek <移动量>\n";
-                    continue;
-                }
-                int offset = stoi(command[1]);
-                lseekFile(offset);
-            }
-            else if (command[0] == "head") {
-                if (command.size() < 2) {
-                    cout << "用法: head <行数>\n";
-                    continue;
-                }
-                int num = stoi(command[1]);
-                headFile(num);
-            }
-            else if (command[0] == "tail") {
-                if (command.size() < 2) {
-                    cout << "用法: tail <行数>\n";
-                    continue;
-                }
-                int num = stoi(command[1]);
-                tailFile(num);
-            }
-            else {
-                cout << "当前有文件打开，只能使用read、write、close、lseek、head和tail命令。\n";
-            }
-            continue;
-        }
-
-        if (command[0] == "register") {
-            if (command.size() < 3) {
-                cout << "用法: register <用户名> <密码>\n";
-                continue;
-            }
-            registerUser(command[1], command[2]);
-        }
-        else if (command[0] == "login") {
-            if (command.size() < 3) {
-                cout << "用法: login <用户名> <密码>\n";
-                continue;
-            }
-            loginUser(command[1], command[2]);
-        }
-        else if (command[0] == "logout") {
-            if (!openFileName.empty()) {
-                cout << "请先关闭文件再注销用户。" << endl;
-                continue;
-            }
-            logoutUser();
-        }
-        else if (command[0] == "mkdir") {
-            if (command.size() < 2) {
-                cout << "用法: mkdir <目录名>\n";
-                continue;
-            }
-            makeDirectory(command[1]);
-        }
-        else if (command[0] == "cd") {
-            if (command.size() < 2) {
-                cout << "用法: cd <目录名>\n";
-                continue;
-            }
-            changeDirectory(command[1]);
-        }
-        else if (command[0] == "dir") showDirectory();
-        else if (command[0] == "create") {
-            if (command.size() < 2) {
-                cout << "用法: create <文件名>\n";
-                continue;
-            }
-            createFile(command[1]);
-        }
-        else if (command[0] == "delete") {
-            if (command.size() < 2) {
-                cout << "用法: delete <文件名>\n";
-                continue;
-            }
-            deleteFile(command[1]);
-        }
-        else if (command[0] == "help") printHelp();
-        else if (command[0] == "listUsers") listUsers();
-        else if (command[0] == "copy") {
-            if (command.size() < 2) {
-                cout << "用法: copy <文件名>\n";
-                continue;
-            }
-            copyFile(command[1]);
-        }
-        else if (command[0] == "paste") pasteFile();
-        else if (command[0] == "rmdir") {
-            if (command.size() < 2) {
-                cout << "用法: rmdir <目录名>\n";
-                continue;
-            }
-            removeDirectory(command[1]);
-        }
-        else if (command[0] == "move") {
-            if (command.size() < 3) {
-                cout << "用法: move <文件名> <目标目录>\n";
-                continue;
-            }
-            moveFile(command[1], command[2]);
-        }
-        else if (command[0] == "open") {
-            if (command.size() < 2) {
-                cout << "用法: open <文件名>\n";
-                continue;
-            }
-            openFile(command[1]);
-        }
-        else if (command[0] == "close") closeFile();
-        else if (command[0] == "lseek") {
-            if (command.size() < 2) {
-                cout << "用法: lseek <移动量>\n";
-                continue;
-            }
-            int offset = stoi(command[1]);
-            lseekFile(offset);
-        }
-        else if (command[0] == "flock") {
-            if (command.size() < 2) {
-                cout << "用法: flock <文件名>\n";
-                continue;
-            }
-            flockFile(command[1]);
-        }
-        else if (command[0] == "head") {
-            if (command.size() < 2) {
-                cout << "用法: head <行数>\n";
-                continue;
-            }
-            int num = stoi(command[1]);
-            headFile(num);
-        }
-        else if (command[0] == "tail") {
-            if (command.size() < 2) {
-                cout << "用法: tail <行数>\n";
-                continue;
-            }
-            int num = stoi(command[1]);
-            tailFile(num);
-        }
-        else if (command[0] == "import") {
-            if (command.size() < 3) {
-                cout << "用法: import <本地文件路径> <虚拟磁盘文件名>\n";
-                continue;
-            }
-            importFile(command[1], command[2]);
-        }
-        else if (command[0] == "export") {
-            if (command.size() < 3) {
-                cout << "用法: export <虚拟磁盘文件名> <本地目录路径>\n";
-                continue;
-            }
-            exportFile(command[1], command[2]);
-        }
-        else {
-            cout << "非法命令。请输入\"help\"查看可用命令。\n";
+        {
+            //lock_guard<mutex> lock(diskMutex);
+            commandQueue.push(input);
+            
+            cv.notify_one();
         }
     }
 }
 
 // 磁盘操作线程
 void diskOperation() {
-    while (true) {
-        unique_lock<mutex> lock(diskMutex);
-        cv.wait(lock, [] { return exitFlag; });
-        if (exitFlag) {
+    while (!exitFlag){
+        string command;
+            unique_lock<mutex> lock(diskMutex);
+            cv.wait(lock, [] { return !commandQueue.empty() || exitFlag; });
+            if (exitFlag && commandQueue.empty()) break;
+            command = commandQueue.front();
+            commandQueue.pop();
+            lock.unlock();
+            if (command.empty()) {
+                cout << "非法命令。请输入\"help\"查看可用命令。\n";
+                continue;
+            }
+        lock_guard<mutex> disklock(diskMutex);
+        loadDisk(SAVE_PATH);
+        vector<string> commandTokens = inputResolve(command);
+        if (commandTokens.empty()) continue;
+       
+        if (!openFileName.empty()) {
+            if (commandTokens[0] == "read") readFile();
+            else if (commandTokens[0] == "write") writeFile();
+            else if (commandTokens[0] == "close") closeFile();
+            else if (commandTokens[0] == "lseek") {
+                if (commandTokens.size() < 2) {
+                    cout << "用法: lseek <移动量>\n";
+                    continue;
+                }
+                int offset = stoi(commandTokens[1]);
+                lseekFile(offset);
+            }
+            else if (commandTokens[0] == "head") {
+                if (commandTokens.size() < 2) {
+                    cout << "用法: head <行数>\n";
+                    continue;
+                }
+                int num = stoi(commandTokens[1]);
+                headFile(num);
+            }
+            else if (commandTokens[0] == "tail") {
+                if (commandTokens.size() < 2) {
+                    cout << "用法: tail <行数>\n";
+                    continue;
+                }
+                int num = stoi(commandTokens[1]);
+                tailFile(num);
+            }
+            else {
+                cout << "当前有文件打开，只能使用read、write、close、lseek、head和tail命令。\n";
+            }
             saveDisk(SAVE_PATH);
-            cout << "磁盘数据已保存。" << endl;
-            break;
+            continue;
         }
+
+        if (commandTokens[0] == "register") {
+            if (commandTokens.size() < 3) {
+                cout << "用法: register <用户名> <密码>\n";
+                continue;
+            }
+            registerUser(commandTokens[1], commandTokens[2]);
+        }
+        else if (commandTokens[0] == "login") {
+            if (commandTokens.size() < 3) {
+                cout << "用法: login <用户名> <密码>\n";
+                continue;
+            }
+            loginUser(commandTokens[1], commandTokens[2]);
+        }
+        else if (commandTokens[0] == "logout") {
+            if (!openFileName.empty()) {
+                cout << "请先关闭文件再注销用户。" << endl;
+                continue;
+            }
+            logoutUser();
+        }
+        else if (commandTokens[0] == "mkdir") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: mkdir <目录名>\n";
+                continue;
+            }
+            makeDirectory(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "cd") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: cd <目录名>\n";
+                continue;
+            }
+            changeDirectory(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "dir") showDirectory();
+        else if (commandTokens[0] == "create") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: create <文件名>\n";
+                continue;
+            }
+            createFile(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "delete") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: delete <文件名>\n";
+                continue;
+            }
+            deleteFile(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "help") printHelp();
+        else if (commandTokens[0] == "listUsers") listUsers();
+        else if (commandTokens[0] == "copy") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: copy <文件名>\n";
+                continue;
+            }
+            copyFile(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "paste") pasteFile();
+        else if (commandTokens[0] == "rmdir") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: rmdir <目录名>\n";
+                continue;
+            }
+            removeDirectory(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "move") {
+            if (commandTokens.size() < 3) {
+                cout << "用法: move <文件名> <目标目录>\n";
+                continue;
+            }
+            moveFile(commandTokens[1], commandTokens[2]);
+        }
+        else if (commandTokens[0] == "open") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: open <文件名>\n";
+                continue;
+            }
+            openFile(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "close") closeFile();
+        else if (commandTokens[0] == "lseek") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: lseek <移动量>\n";
+                continue;
+            }
+            int offset = stoi(commandTokens[1]);
+            lseekFile(offset);
+        }
+        else if (commandTokens[0] == "flock") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: flock <文件名>\n";
+                continue;
+            }
+            flockFile(commandTokens[1]);
+        }
+        else if (commandTokens[0] == "head") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: head <行数>\n";
+                continue;
+            }
+            int num = stoi(commandTokens[1]);
+            headFile(num);
+        }
+        else if (commandTokens[0] == "tail") {
+            if (commandTokens.size() < 2) {
+                cout << "用法: tail <行数>\n";
+                continue;
+            }
+            int num = stoi(commandTokens[1]);
+            tailFile(num);
+        }
+        else if (commandTokens[0] == "import") {
+            if (commandTokens.size() < 3) {
+                cout << "用法: import <本地文件路径> <虚拟磁盘文件名>\n";
+                continue;
+            }
+            importFile(commandTokens[1], commandTokens[2]);
+        }
+        else if (commandTokens[0] == "export") {
+            if (commandTokens.size() < 3) {
+                cout << "用法: export <虚拟磁盘文件名> <本地目录路径>\n";
+                continue;
+            }
+            exportFile(commandTokens[1], commandTokens[2]);
+        }
+        else {
+            cout << "非法命令。请输入\"help\"查看可用命令。\n";
+        }
+
+        saveDisk(SAVE_PATH);
     }
 }
+

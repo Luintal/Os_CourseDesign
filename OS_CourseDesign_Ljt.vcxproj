@@ -130,8 +130,12 @@
     <ClInclude Include="File_System.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="File_System.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="File_System.cpp">
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpp20</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpp20</LanguageStandard>
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
