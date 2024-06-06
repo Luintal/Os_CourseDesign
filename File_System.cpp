@@ -495,7 +495,7 @@ void writeFile() {
         cout << "当前没有打开的文件。" << endl;
         return;
     }
-    cout << "请输入内容（输入 'END' 表示结束）:" << endl;
+    cout << "请从第二行开始输入内容（输入 'END' 表示结束）:" << endl;
     string content;
     string line;
     while (true) {
