@@ -1,16 +1,16 @@
 #include "File_System.h"
 
-shared_ptr<Disk> diskData;
-shared_ptr<Directory> currentDirectory;
-shared_ptr<User> currentUser;
-const string SAVE_PATH = "disk.dat";
+shared_ptr<Disk> diskData;//磁盘数据
+shared_ptr<Directory> currentDirectory;//当前目录
+shared_ptr<User> currentUser;//当前用户
+const string SAVE_PATH = "disk.dat";//保存磁盘数据的文件路径
 shared_ptr<FileControlBlock> copiedFile = nullptr;//初始化全局变量来保存拷贝的文件信息
 set<string> openFiles; // 初始化已打开文件的集合
 string openFileName = ""; // 初始化当前打开的文件名
-mutex diskMutex;
-condition_variable cv;
-bool exitFlag = false;
-queue<string> commandQueue;
+mutex diskMutex;//初始化磁盘数据的互斥锁
+condition_variable cv;//初始化条件变量
+bool exitFlag = false;//初始化推出变量
+queue<string> commandQueue;//初始化命令队列
 
 // 打印帮助信息
 void printHelp() {
@@ -45,75 +45,91 @@ void printHelp() {
 
 // 解析用户输入的命令
 vector<string> inputResolve(const string& input) {
-    vector<string> result;
-    istringstream iss(input);
-    string token;
+    vector<string> result; // 用于存储解析后的单词
+    istringstream iss(input);// 使用 istringstream 将字符串转换为输入流
+    string token; // 用于存储从输入流中提取的每个单词
     while (iss >> token) {
-        result.push_back(token);
+        result.push_back(token);// 将提取的单词加入结果向量
     }
     return result;
 }
 
 // 递归保存目录和文件
 void saveDirectory(ofstream& file, shared_ptr<Directory> directory) {
+    // 获取当前目录的子目录数量和文件数量
     size_t dirCount = directory->children.size();
     size_t fileCount = directory->files.size();
+
+    // 将子目录数量写入文件
     file.write(reinterpret_cast<const char*>(&dirCount), sizeof(dirCount));
+
+    // 遍历每个子目录
     for (const auto& dir : directory->children) {
+        // 获取子目录名称长度并写入文件
         size_t dirNameLen = dir->fileControlBlock->fileName.size();
         file.write(reinterpret_cast<const char*>(&dirNameLen), sizeof(dirNameLen));
+        // 写入子目录名称
         file.write(dir->fileControlBlock->fileName.c_str(), dirNameLen);
-        saveDirectory(file, dir); // 递归保存子目录
+        // 递归保存子目录
+        saveDirectory(file, dir);
     }
+    // 将文件数量写入文件
     file.write(reinterpret_cast<const char*>(&fileCount), sizeof(fileCount));
+
+    // 遍历每个文件
     for (const auto& fcb : directory->files) {
+        // 获取文件名称长度并写入文件
         size_t fileNameLen = fcb->fileName.size();
-        size_t contentLen = fcb->content.size();
         file.write(reinterpret_cast<const char*>(&fileNameLen), sizeof(fileNameLen));
+        // 写入文件名称
         file.write(fcb->fileName.c_str(), fileNameLen);
+        // 获取文件内容长度并写入文件
+        size_t contentLen = fcb->content.size();
         file.write(reinterpret_cast<const char*>(&contentLen), sizeof(contentLen));
+        // 写入文件内容
         file.write(fcb->content.c_str(), contentLen);
+        // 写入文件读写指针位置
         file.write(reinterpret_cast<const char*>(&fcb->readWritePointer), sizeof(fcb->readWritePointer));
+        // 写入文件锁定状态
         file.write(reinterpret_cast<const char*>(&fcb->isLocked), sizeof(fcb->isLocked));
     }
 }
 
 // 递归加载目录和文件，并设置父目录指针
 void loadDirectory(ifstream& file, shared_ptr<Directory> directory) {
-    size_t dirCount, fileCount;
-    file.read(reinterpret_cast<char*>(&dirCount), sizeof(dirCount));
-
+    size_t dirCount, fileCount;// 子目录数量和文件数量
+    file.read(reinterpret_cast<char*>(&dirCount), sizeof(dirCount));// 读取当前目录的子目录数量
+    // 遍历每个子目录
     for (size_t i = 0; i < dirCount; ++i) {
         string dirName;
         size_t dirNameLen;
-        file.read(reinterpret_cast<char*>(&dirNameLen), sizeof(dirNameLen));
+        file.read(reinterpret_cast<char*>(&dirNameLen), sizeof(dirNameLen));// 读取子目录名称长度
         dirName.resize(dirNameLen);
         file.read(&dirName[0], dirNameLen);
-
+        // 创建子目录并设置其属性
         auto dir = make_shared<Directory>();
         dir->fileControlBlock = make_shared<FileControlBlock>();
         dir->fileControlBlock->fileName = dirName;
         dir->fileControlBlock->isDirectory = true;
         dir->parentDirectory = directory; // 设置父目录指针
-
+        // 将子目录加入当前目录的子目录列表
         directory->children.push_back(dir);
-
         loadDirectory(file, dir); // 递归加载子目录
     }
-
+    // 读取当前目录的文件数量
     file.read(reinterpret_cast<char*>(&fileCount), sizeof(fileCount));
-    for (size_t i = 0; i < fileCount; ++i) {
+    for (size_t i = 0; i < fileCount; ++i) {// 遍历每个文件
         string fileName, content;
         size_t fileNameLen, contentLen;
-
+        // 读取文件名称长度
         file.read(reinterpret_cast<char*>(&fileNameLen), sizeof(fileNameLen));
         fileName.resize(fileNameLen);
         file.read(&fileName[0], fileNameLen);
-
+        // 读取文件内容长度
         file.read(reinterpret_cast<char*>(&contentLen), sizeof(contentLen));
         content.resize(contentLen);
         file.read(&content[0], contentLen);
-
+        // 创建文件控制块并设置其属性
         auto fcb = make_shared<FileControlBlock>();
         fcb->fileName = fileName;
         fcb->isDirectory = false;
@@ -121,11 +137,12 @@ void loadDirectory(ifstream& file, shared_ptr<Directory> directory) {
 
         file.read(reinterpret_cast<char*>(&fcb->readWritePointer), sizeof(fcb->readWritePointer));
         file.read(reinterpret_cast<char*>(&fcb->isLocked), sizeof(fcb->isLocked));
-
+        // 将文件控制块加入当前目录的文件列表
         directory->files.push_back(fcb);
     }
 }
 
+// 保存磁盘数据到文件
 bool saveDisk(const string& path) {
     ofstream file(path, ios::binary);
     if (!file.is_open()) {
@@ -149,7 +166,7 @@ bool saveDisk(const string& path) {
     return true;
 }
 
-
+//加载磁盘数据
 bool loadDisk(const string& path) {
     ifstream file(path, ios::binary);
     if (!file.is_open()) {
@@ -275,16 +292,13 @@ void reloadDisk(const string& path) {
 
 // 获取当前时间字符串
 string getCurrentTime() {
-    time_t now = time(0);
+    time_t now = time(0);// 获取当前时间点
     tm localtm;
     localtime_s(&localtm, &now);
     char buffer[80];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &localtm);
     return string(buffer);
 }
-
-
-
 
 // 初始化磁盘
 void initDisk() {
@@ -363,7 +377,7 @@ void makeDirectory(const string& dirname) {
     dir->fileControlBlock = make_shared<FileControlBlock>();
     dir->fileControlBlock->fileName = dirname;
     dir->fileControlBlock->isDirectory = true;
-    dir->parentDirectory = currentDirectory; // 设置父目录指针
+    dir->parentDirectory = currentDirectory; // 设置父目录指针。 将新目录添加到当前目录的子目录列表中
     currentDirectory->children.push_back(dir);
     cout << "目录创建成功。" << endl;
     saveDisk(SAVE_PATH);
@@ -389,7 +403,7 @@ void changeDirectory(const string& dirname) {
         cout << "无效的目录名。" << endl;
         return;
     }
-    for (const auto& dir : currentDirectory->children) {
+    for (const auto& dir : currentDirectory->children) {// 遍历当前目录的子目录
         if (dir->fileControlBlock->fileName == dirname) {
             currentDirectory = dir;
             return;
@@ -406,7 +420,7 @@ void showDirectory() {
     }
 
     if (currentDirectory == currentUser->rootDirectory) {
-        // 当前在用户根目录下，输出所有子目录名
+        // 当前在用户根目录下，输出所有子目录名及其下所有文件名
         cout << "用户 " << currentUser->username << " 根目录下的目录: ";
         for (const auto& dir : currentDirectory->children) {
             cout << dir->fileControlBlock->fileName << " ";
@@ -729,7 +743,7 @@ void moveFile(const string& filename, const string& destDir) {
     saveDisk(SAVE_PATH);
 }
 
-
+//打开文件
 void openFile(const string& filename) {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -751,7 +765,7 @@ void openFile(const string& filename) {
     cout << "文件不存在。" << endl;
 }
 
-
+//关闭文件
 void closeFile() {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -767,6 +781,7 @@ void closeFile() {
     saveDisk(SAVE_PATH);
 }
 
+// 移动文件读写指针
 void lseekFile(int offset) {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -791,6 +806,7 @@ void lseekFile(int offset) {
     cout << "文件不存在。" << endl;
 }
 
+//文件加锁、解锁
 void flockFile(const string& filename) {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -812,7 +828,7 @@ void flockFile(const string& filename) {
     cout << "文件不存在。" << endl;
 }
 
-
+// 从头显示文件内容
 void headFile(int num) {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -822,12 +838,12 @@ void headFile(int num) {
         cout << "当前没有打开的文件。" << endl;
         return;
     }
-    for (const auto& file : currentDirectory->files) {
+    for (const auto& file : currentDirectory->files) {// 遍历当前目录中的文件，查找打开的文件
         if (file->fileName == openFileName) {
             istringstream stream(file->content);
             string line;
             int lineCount = 0;
-            while (lineCount < num && getline(stream, line)) {
+            while (lineCount < num && getline(stream, line)) {// 读取并输出前 num 行内容
                 cout << line << endl;
                 lineCount++;
             }
@@ -837,6 +853,7 @@ void headFile(int num) {
     cout << "文件不存在。" << endl;
 }
 
+//从尾显示文件内容
 void tailFile(int num) {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -851,12 +868,12 @@ void tailFile(int num) {
             istringstream stream(file->content);
             vector<string> lines;
             string line;
-            while (getline(stream, line)) {
+            while (getline(stream, line)) {// 将所有行读入向量
                 lines.push_back(line);
             }
             int totalLines = lines.size();
-            int startLine = max(0, totalLines - num);
-            for (int i = startLine; i < totalLines; i++) {
+            int startLine = max(0, totalLines - num);// 计算开始显示的行号
+            for (int i = startLine; i < totalLines; i++) {      // 输出最后 num 行内容
                 cout << lines[i] << endl;
             }
             return;
@@ -865,6 +882,7 @@ void tailFile(int num) {
     cout << "文件不存在。" << endl;
 }
 
+//导入文件
 void importFile(const string& localPath, const string& virtualName) {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -879,7 +897,7 @@ void importFile(const string& localPath, const string& virtualName) {
         cout << "无法打开本地文件 " << localPath << endl;
         return;
     }
-
+    // 读取文件内容到字符串流
     stringstream buffer;
     buffer << inFile.rdbuf();
     string content = buffer.str();
@@ -906,7 +924,7 @@ void importFile(const string& localPath, const string& virtualName) {
 }
 
 
-
+//导出文件
 void exportFile(const string& virtualName, const string& localPath) {
     if (!currentUser) {
         cout << "请先登录。" << endl;
@@ -956,15 +974,15 @@ void userInteraction() {
         }
         getline(cin, input);
         {
-            std::lock_guard<std::mutex> lock(diskMutex);
+            std::lock_guard<std::mutex> lock(diskMutex);// 加锁以确保线程安全
             if (input == "exit") {
                 exitFlag = true;
                 break;
             }
-            commandQueue.push(input);
+            commandQueue.push(input);// 将命令放入队列
         }
 
-        cv.notify_one();
+        cv.notify_one();// 通知磁盘操作线程有新命令
 
     }
 }
@@ -973,16 +991,16 @@ void diskOperation() {
     while (!exitFlag) {
         string command;
         {
-            std::unique_lock<std::mutex> lock(diskMutex);
-            cv.wait(lock, [] { return !commandQueue.empty() || exitFlag; });
-            if (exitFlag && commandQueue.empty()) break;
-            command = commandQueue.front();
-            commandQueue.pop();
+            std::unique_lock<std::mutex> lock(diskMutex);// 加锁以确保线程安全
+            cv.wait(lock, [] { return !commandQueue.empty() || exitFlag; });// 等待新命令或退出标志
+            if (exitFlag && commandQueue.empty()) break; // 如果退出标志设置且命令队列为空，则退出
+            command = commandQueue.front();// 获取命令
+            commandQueue.pop();// 移除命令
             lock.unlock();
         }
         {
-            std::lock_guard<std::mutex> disklock(diskMutex);
-
+            std::lock_guard<std::mutex> disklock(diskMutex);// 加锁以确保线程安全
+            // 保存当前打开文件的信息
             string savedOpenFileName = openFileName;
             size_t savedReadWritePointer = 0;
             auto savedCopiedFile = copiedFile;
@@ -995,7 +1013,7 @@ void diskOperation() {
                     }
                 }
             }
-
+            // 重新加载磁盘
             reloadDisk(SAVE_PATH);
 
             if (!savedOpenFileName.empty()) {
@@ -1017,7 +1035,7 @@ void diskOperation() {
             if (commandTokens.empty()) continue;
 
             if (!openFileName.empty()) {
-                // Handle file operations
+                
                 if (commandTokens[0] == "read") readFile();
                 else if (commandTokens[0] == "write") writeFile();
                 else if (commandTokens[0] == "close") closeFile();

@@ -8,7 +8,7 @@ int main() {
     cin >> response;
     if (response == "yes") {
         initDisk();
-        //saveDisk(SAVE_PATH); // 初始化后立即保存磁盘状态
+        saveDisk(SAVE_PATH); // 初始化后立即保存磁盘状态
     }
     else {
         if (!loadDisk(SAVE_PATH)) {
@@ -23,11 +23,11 @@ int main() {
     printHelp();
     cin.ignore();
 
-    thread userThread(userInteraction);
-    thread diskThread(diskOperation);
+    thread userThread(userInteraction);//用户线程
+    thread diskThread(diskOperation);//磁盘线程
 
-    userThread.join();
-    diskThread.join();
+    userThread.join();//等待用户线程结束
+    diskThread.join();//等待磁盘线程结束
 
     return 0;
 }

@@ -48,7 +48,7 @@ struct Directory {//目录
 struct User {//用户
 	string username;
 	string password;
-	shared_ptr<Directory> rootDirectory;
+	shared_ptr<Directory> rootDirectory;//用户的根目录
 };
 
 struct Disk {//磁盘
@@ -57,16 +57,16 @@ struct Disk {//磁盘
 };
 
 // 全局变量声明
-extern shared_ptr<Disk> diskData;
-extern shared_ptr<Directory> currentDirectory;
-extern shared_ptr<User> currentUser;
-extern const string SAVE_PATH;
+extern shared_ptr<Disk> diskData;//磁盘数据
+extern shared_ptr<Directory> currentDirectory;//当前目录
+extern shared_ptr<User> currentUser;//当前用户
+extern const string SAVE_PATH;//保存磁盘数据的文件路径
 extern shared_ptr<FileControlBlock> copiedFile;//全局变量来保存拷贝的文件信息
 extern set<string> openFiles; // 保存已打开文件的集合
 extern string openFileName; // 保存当前打开的文件名
-extern mutex diskMutex;
-extern condition_variable cv;
-extern bool exitFlag;
+extern mutex diskMutex;//磁盘数据的互斥锁
+extern condition_variable cv;//条件变量
+extern bool exitFlag;//退出标志
 
 // 函数声明
 void printHelp();//打印帮助信息
@@ -97,8 +97,8 @@ void lseekFile(int offset); // 控制文件读写指针移动
 void flockFile(const string& filename); // 文件加锁和解锁
 void headFile(int num); // 显示文件的前 num 行
 void tailFile(int num); // 显示文件尾巴上的 num 行
-void importFile(const string& localPath, const string& virtualName);
-void exportFile(const string& virtualName, const string& localPath);
+void importFile(const string& localPath, const string& virtualName);//导入文件
+void exportFile(const string& virtualName, const string& localPath);//导出文件
 void userInteraction();//用户交互
 void diskOperation();//磁盘交互
 void reloadDisk(const string& path);//重新加载磁盘
