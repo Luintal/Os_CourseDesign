@@ -4,46 +4,46 @@ shared_ptr<Disk> diskData;
 shared_ptr<Directory> currentDirectory;
 shared_ptr<User> currentUser;
 const string SAVE_PATH = "disk.dat";
-shared_ptr<FileControlBlock> copiedFile = nullptr;//³õÊ¼»¯È«¾Ö±äÁ¿À´±£´æ¿½±´µÄÎÄ¼şĞÅÏ¢
-set<string> openFiles; // ³õÊ¼»¯ÒÑ´ò¿ªÎÄ¼şµÄ¼¯ºÏ
-string openFileName = ""; // ³õÊ¼»¯µ±Ç°´ò¿ªµÄÎÄ¼şÃû
+shared_ptr<FileControlBlock> copiedFile = nullptr;//åˆå§‹åŒ–å…¨å±€å˜é‡æ¥ä¿å­˜æ‹·è´çš„æ–‡ä»¶ä¿¡æ¯
+set<string> openFiles; // åˆå§‹åŒ–å·²æ‰“å¼€æ–‡ä»¶çš„é›†åˆ
+string openFileName = ""; // åˆå§‹åŒ–å½“å‰æ‰“å¼€çš„æ–‡ä»¶å
 mutex diskMutex;
 condition_variable cv;
 bool exitFlag = false;
 queue<string> commandQueue;
 
-// ´òÓ¡°ïÖúĞÅÏ¢
+// æ‰“å°å¸®åŠ©ä¿¡æ¯
 void printHelp() {
-    cout << "¿ÉÓÃÃüÁî¼°ÓÃ·¨:\n";
-    cout << "  register <ÓÃ»§Ãû> <ÃÜÂë>                  - ×¢²áĞÂÓÃ»§\n";
-    cout << "  login <ÓÃ»§Ãû> <ÃÜÂë>                     - µÇÂ¼ÓÃ»§\n";
-    cout << "  logout                                    - ÍË³öµ±Ç°ÓÃ»§\n";
-    cout << "  mkdir <Ä¿Â¼Ãû>                            - ´´½¨Ä¿Â¼\n";
-    cout << "  cd <Ä¿Â¼Ãû>                               - ÇĞ»»Ä¿Â¼\n";
-    cout << "  rmdir <Ä¿Â¼Ãû>                            - É¾³ıÄ¿Â¼\n";
-    cout << "  dir                                       - ÏÔÊ¾µ±Ç°Ä¿Â¼ÄÚÈİ\n";
-    cout << "  create <ÎÄ¼şÃû>                           - ´´½¨ÎÄ¼ş\n";
-    cout << "  delete <ÎÄ¼şÃû>                           - É¾³ıÎÄ¼ş\n";
-    cout << "  open <ÎÄ¼şÃû>                             - ´ò¿ªÎÄ¼ş\n";
-    cout << "  close <ÎÄ¼şÃû>                            - ¹Ø±ÕÎÄ¼ş\n";
-    cout << "  write                                     - Ğ´ÈëÎÄ¼ş\n";
-    cout << "  read                                      - ¶ÁÈ¡ÎÄ¼şÄÚÈİ\n";
-    cout << "  head <ĞĞÊı>                               - ÏÔÊ¾ÎÄ¼şÍ·²¿\n";
-    cout << "  tail <ĞĞÊı>                               - ÏÔÊ¾ÎÄ¼şÎ²²¿\n";
-    cout << "  lseek <Æ«ÒÆÁ¿>                            - ÒÆ¶¯ÎÄ¼ş¶ÁĞ´Ö¸Õë\n";
-    cout << "  move <ÎÄ¼şÃû> <Ä¿±êÄ¿Â¼>                  - ÒÆ¶¯ÎÄ¼ş\n";
-    cout << "  copy <ÎÄ¼şÃû>                             - ¿½±´ÎÄ¼ş\n";
-    cout << "  paste                                     - Õ³ÌùÎÄ¼ş\n";
-    cout << "  flock <ÎÄ¼şÃû>                            - Ëø¶¨/½âËøÎÄ¼ş\n";
-    cout << "  import <±¾µØÎÄ¼şÂ·¾¶> <ĞéÄâ´ÅÅÌÎÄ¼şÃû>    - µ¼ÈëÎÄ¼ş\n";
-    cout << "  export <ĞéÄâ´ÅÅÌÎÄ¼şÃû> <±¾µØÄ¿Â¼Â·¾¶>    - µ¼³öÎÄ¼ş\n";
-    cout << "  exit                                      - ÍË³ö³ÌĞò\n";
-    cout << "  listUsers                                 - ÏÔÊ¾ÕËºÅ\n";
-    cout << "  help                                      - ÏÔÊ¾°ïÖúĞÅÏ¢\n";
+    cout << "å¯ç”¨å‘½ä»¤åŠç”¨æ³•:\n";
+    cout << "  register <ç”¨æˆ·å> <å¯†ç >                  - æ³¨å†Œæ–°ç”¨æˆ·\n";
+    cout << "  login <ç”¨æˆ·å> <å¯†ç >                     - ç™»å½•ç”¨æˆ·\n";
+    cout << "  logout                                    - é€€å‡ºå½“å‰ç”¨æˆ·\n";
+    cout << "  mkdir <ç›®å½•å>                            - åˆ›å»ºç›®å½•\n";
+    cout << "  cd <ç›®å½•å>                               - åˆ‡æ¢ç›®å½•\n";
+    cout << "  rmdir <ç›®å½•å>                            - åˆ é™¤ç›®å½•\n";
+    cout << "  dir                                       - æ˜¾ç¤ºå½“å‰ç›®å½•å†…å®¹\n";
+    cout << "  create <æ–‡ä»¶å>                           - åˆ›å»ºæ–‡ä»¶\n";
+    cout << "  delete <æ–‡ä»¶å>                           - åˆ é™¤æ–‡ä»¶\n";
+    cout << "  open <æ–‡ä»¶å>                             - æ‰“å¼€æ–‡ä»¶\n";
+    cout << "  close <æ–‡ä»¶å>                            - å…³é—­æ–‡ä»¶\n";
+    cout << "  write                                     - å†™å…¥æ–‡ä»¶\n";
+    cout << "  read                                      - è¯»å–æ–‡ä»¶å†…å®¹\n";
+    cout << "  head <è¡Œæ•°>                               - æ˜¾ç¤ºæ–‡ä»¶å¤´éƒ¨\n";
+    cout << "  tail <è¡Œæ•°>                               - æ˜¾ç¤ºæ–‡ä»¶å°¾éƒ¨\n";
+    cout << "  lseek <åç§»é‡>                            - ç§»åŠ¨æ–‡ä»¶è¯»å†™æŒ‡é’ˆ\n";
+    cout << "  move <æ–‡ä»¶å> <ç›®æ ‡ç›®å½•>                  - ç§»åŠ¨æ–‡ä»¶\n";
+    cout << "  copy <æ–‡ä»¶å>                             - æ‹·è´æ–‡ä»¶\n";
+    cout << "  paste                                     - ç²˜è´´æ–‡ä»¶\n";
+    cout << "  flock <æ–‡ä»¶å>                            - é”å®š/è§£é”æ–‡ä»¶\n";
+    cout << "  import <æœ¬åœ°æ–‡ä»¶è·¯å¾„> <è™šæ‹Ÿç£ç›˜æ–‡ä»¶å>    - å¯¼å…¥æ–‡ä»¶\n";
+    cout << "  export <è™šæ‹Ÿç£ç›˜æ–‡ä»¶å> <æœ¬åœ°ç›®å½•è·¯å¾„>    - å¯¼å‡ºæ–‡ä»¶\n";
+    cout << "  exit                                      - é€€å‡ºç¨‹åº\n";
+    cout << "  listUsers                                 - æ˜¾ç¤ºè´¦å·\n";
+    cout << "  help                                      - æ˜¾ç¤ºå¸®åŠ©ä¿¡æ¯\n";
     cout << endl;
 }
 
-// ½âÎöÓÃ»§ÊäÈëµÄÃüÁî
+// è§£æç”¨æˆ·è¾“å…¥çš„å‘½ä»¤
 vector<string> inputResolve(const string& input) {
     vector<string> result;
     istringstream iss(input);
@@ -54,7 +54,7 @@ vector<string> inputResolve(const string& input) {
     return result;
 }
 
-// µİ¹é±£´æÄ¿Â¼ºÍÎÄ¼ş
+// é€’å½’ä¿å­˜ç›®å½•å’Œæ–‡ä»¶
 void saveDirectory(ofstream& file, shared_ptr<Directory> directory) {
     size_t dirCount = directory->children.size();
     size_t fileCount = directory->files.size();
@@ -63,7 +63,7 @@ void saveDirectory(ofstream& file, shared_ptr<Directory> directory) {
         size_t dirNameLen = dir->fileControlBlock->fileName.size();
         file.write(reinterpret_cast<const char*>(&dirNameLen), sizeof(dirNameLen));
         file.write(dir->fileControlBlock->fileName.c_str(), dirNameLen);
-        saveDirectory(file, dir);
+        saveDirectory(file, dir); // é€’å½’ä¿å­˜å­ç›®å½•
     }
     file.write(reinterpret_cast<const char*>(&fileCount), sizeof(fileCount));
     for (const auto& fcb : directory->files) {
@@ -73,10 +73,12 @@ void saveDirectory(ofstream& file, shared_ptr<Directory> directory) {
         file.write(fcb->fileName.c_str(), fileNameLen);
         file.write(reinterpret_cast<const char*>(&contentLen), sizeof(contentLen));
         file.write(fcb->content.c_str(), contentLen);
+        file.write(reinterpret_cast<const char*>(&fcb->readWritePointer), sizeof(fcb->readWritePointer));
+        file.write(reinterpret_cast<const char*>(&fcb->isLocked), sizeof(fcb->isLocked));
     }
 }
 
-// µİ¹é¼ÓÔØÄ¿Â¼ºÍÎÄ¼ş£¬²¢ÉèÖÃ¸¸Ä¿Â¼Ö¸Õë
+// é€’å½’åŠ è½½ç›®å½•å’Œæ–‡ä»¶ï¼Œå¹¶è®¾ç½®çˆ¶ç›®å½•æŒ‡é’ˆ
 void loadDirectory(ifstream& file, shared_ptr<Directory> directory) {
     size_t dirCount, fileCount;
     file.read(reinterpret_cast<char*>(&dirCount), sizeof(dirCount));
@@ -90,9 +92,9 @@ void loadDirectory(ifstream& file, shared_ptr<Directory> directory) {
         dir->fileControlBlock = make_shared<FileControlBlock>();
         dir->fileControlBlock->fileName = dirName;
         dir->fileControlBlock->isDirectory = true;
-        dir->parentDirectory = directory; // ÉèÖÃ¸¸Ä¿Â¼Ö¸Õë
+        dir->parentDirectory = directory; // è®¾ç½®çˆ¶ç›®å½•æŒ‡é’ˆ
         directory->children.push_back(dir);
-        loadDirectory(file, dir);
+        loadDirectory(file, dir); // é€’å½’åŠ è½½å­ç›®å½•
     }
     file.read(reinterpret_cast<char*>(&fileCount), sizeof(fileCount));
     for (size_t i = 0; i < fileCount; ++i) {
@@ -108,13 +110,39 @@ void loadDirectory(ifstream& file, shared_ptr<Directory> directory) {
         fcb->fileName = fileName;
         fcb->isDirectory = false;
         fcb->content = content;
+        file.read(reinterpret_cast<char*>(&fcb->readWritePointer), sizeof(fcb->readWritePointer));
+        file.read(reinterpret_cast<char*>(&fcb->isLocked), sizeof(fcb->isLocked));
         directory->files.push_back(fcb);
     }
+}
+
+bool saveDisk(const string& path) {
+    ofstream file(path, ios::binary);
+    if (!file.is_open()) {
+        cerr << "æ— æ³•æ‰“å¼€æ–‡ä»¶è¿›è¡Œä¿å­˜: " << path << endl;
+        return false;
+    }
+    size_t usersCount = diskData->users.size();
+    file.write(reinterpret_cast<const char*>(&usersCount), sizeof(usersCount));
+    for (const auto& [username, user] : diskData->users) {
+        size_t usernameLen = username.size();
+        size_t passwordLen = user->password.size();
+        file.write(reinterpret_cast<const char*>(&usernameLen), sizeof(usernameLen));
+        file.write(username.c_str(), usernameLen);
+        file.write(reinterpret_cast<const char*>(&passwordLen), sizeof(passwordLen));
+        file.write(user->password.c_str(), passwordLen);
+
+        saveDirectory(file, user->rootDirectory);
+    }
+    file.close();
+    cout << "ç£ç›˜ä¿å­˜æˆåŠŸ: " << path << endl;
+    return true;
 }
 
 bool loadDisk(const string& path) {
     ifstream file(path, ios::binary);
     if (!file.is_open()) {
+        cerr << "æ— æ³•æ‰“å¼€æ–‡ä»¶è¿›è¡ŒåŠ è½½: " << path << endl;
         return false;
     }
     diskData = make_shared<Disk>();
@@ -134,47 +162,24 @@ bool loadDisk(const string& path) {
         user->password = password;
         diskData->users[username] = user;
 
-        // ¼ÓÔØÓÃ»§Ä¿Â¼ºÍÎÄ¼ş
         user->rootDirectory = make_shared<Directory>();
         auto rootDir = user->rootDirectory;
         rootDir->fileControlBlock = make_shared<FileControlBlock>();
         rootDir->fileControlBlock->fileName = "/";
         rootDir->fileControlBlock->isDirectory = true;
-        rootDir->parentDirectory.reset(); // ¸ùÄ¿Â¼Ã»ÓĞ¸¸Ä¿Â¼
+        rootDir->parentDirectory.reset(); // æ ¹ç›®å½•æ²¡æœ‰çˆ¶ç›®å½•
         loadDirectory(file, rootDir);
     }
     file.close();
-    return true;
-}
-
-
-bool saveDisk(const string& path) {
-    ofstream file(path, ios::binary);
-    if (!file.is_open()) {
-        return false;
-    }
-    size_t usersCount = diskData->users.size();
-    file.write(reinterpret_cast<const char*>(&usersCount), sizeof(usersCount));
-    for (auto it = diskData->users.begin(); it != diskData->users.end(); ++it) {
-        const string& username = it->first;
-        shared_ptr<User> user = it->second;
-        size_t usernameLen = username.size();
-        size_t passwordLen = user->password.size();
-        file.write(reinterpret_cast<const char*>(&usernameLen), sizeof(usernameLen));
-        file.write(username.c_str(), usernameLen);
-        file.write(reinterpret_cast<const char*>(&passwordLen), sizeof(passwordLen));
-        file.write(user->password.c_str(), passwordLen);
-
-        // Save user directories and files
-        saveDirectory(file, user->rootDirectory);
-    }
-    file.close();
+    cout << "ç£ç›˜åŠ è½½æˆåŠŸ: " << path << endl;
     return true;
 }
 
 
 
-// ³õÊ¼»¯´ÅÅÌ
+
+
+// åˆå§‹åŒ–ç£ç›˜
 void initDisk() {
     diskData = make_shared<Disk>();
     auto rootDir = make_shared<Directory>();
@@ -188,13 +193,13 @@ void initDisk() {
     diskData->users["root"]->rootDirectory = rootDir;
     currentDirectory = rootDir;
     currentUser = diskData->users["root"];
-    cout << "ĞÂ´ÅÅÌÒÑ³õÊ¼»¯¡£" << endl;
+    cout << "æ–°ç£ç›˜å·²åˆå§‹åŒ–ã€‚" << endl;
 }
 
-// ÓÃ»§×¢²á
+// ç”¨æˆ·æ³¨å†Œ
 void registerUser(const string& username, const string& password) {
     if (diskData->users.find(username) != diskData->users.end()) {
-        cout << "ÓÃ»§ÃûÒÑ´æÔÚ¡£" << endl;
+        cout << "ç”¨æˆ·åå·²å­˜åœ¨ã€‚" << endl;
         return;
     }
     auto user = make_shared<User>();
@@ -205,45 +210,45 @@ void registerUser(const string& username, const string& password) {
     user->rootDirectory->fileControlBlock->fileName = "/";
     user->rootDirectory->fileControlBlock->isDirectory = true;
     diskData->users[username] = user;
-    cout << "ÓÃ»§×¢²á³É¹¦¡£" << endl;
+    cout << "ç”¨æˆ·æ³¨å†ŒæˆåŠŸã€‚" << endl;
 }
 
-// ÓÃ»§µÇÂ¼
+// ç”¨æˆ·ç™»å½•
 bool loginUser(const string& username, const string& password) {
     if (diskData->users.find(username) == diskData->users.end() || diskData->users[username]->password != password) {
-        cout << "ÓÃ»§Ãû»òÃÜÂë´íÎó¡£" << endl;
+        cout << "ç”¨æˆ·åæˆ–å¯†ç é”™è¯¯ã€‚" << endl;
         return false;
     }
     currentUser = diskData->users[username];
     currentDirectory = currentUser->rootDirectory;
-    cout << "ÓÃ»§µÇÂ¼³É¹¦¡£" << endl;
+    cout << "ç”¨æˆ·ç™»å½•æˆåŠŸã€‚" << endl;
     return true;
 }
 
-// ÓÃ»§×¢Ïú
+// ç”¨æˆ·æ³¨é”€
 void logoutUser() {
     if (!currentUser) {
-        cout << "µ±Ç°Ã»ÓĞÓÃ»§µÇÂ¼¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰ç”¨æˆ·ç™»å½•ã€‚" << endl;
         return;
     }
     currentUser = nullptr;
     currentDirectory = nullptr;
-    cout << "ÓÃ»§ÒÑ×¢Ïú¡£" << endl;
+    cout << "ç”¨æˆ·å·²æ³¨é”€ã€‚" << endl;
 }
 
-// ´´½¨Ä¿Â¼
+// åˆ›å»ºç›®å½•
 void makeDirectory(const string& dirname) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (!isValidName(dirname)) {
-        cout << "ÎŞĞ§µÄÄ¿Â¼Ãû¡£" << endl;
+        cout << "æ— æ•ˆçš„ç›®å½•åã€‚" << endl;
         return;
     }
     for (const auto& dir : currentDirectory->children) {
         if (dir->fileControlBlock->fileName == dirname) {
-            cout << "Ä¿Â¼ÒÑ´æÔÚ¡£" << endl;
+            cout << "ç›®å½•å·²å­˜åœ¨ã€‚" << endl;
             return;
         }
     }
@@ -251,15 +256,16 @@ void makeDirectory(const string& dirname) {
     dir->fileControlBlock = make_shared<FileControlBlock>();
     dir->fileControlBlock->fileName = dirname;
     dir->fileControlBlock->isDirectory = true;
-    dir->parentDirectory = currentDirectory; // ÉèÖÃ¸¸Ä¿Â¼Ö¸Õë
+    dir->parentDirectory = currentDirectory; // è®¾ç½®çˆ¶ç›®å½•æŒ‡é’ˆ
     currentDirectory->children.push_back(dir);
-    cout << "Ä¿Â¼´´½¨³É¹¦¡£" << endl;
+    cout << "ç›®å½•åˆ›å»ºæˆåŠŸã€‚" << endl;
 }
 
-// ÇĞ»»Ä¿Â¼
+
+// åˆ‡æ¢ç›®å½•
 void changeDirectory(const string& dirname) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (dirname == "..") {
@@ -267,12 +273,12 @@ void changeDirectory(const string& dirname) {
             currentDirectory = parent;
         }
         else {
-            cout << "ÒÑÔÚ¸ùÄ¿Â¼£¬ÎŞ·¨ÔÙÏòÉÏÒ»¼¶¡£" << endl;
+            cout << "å·²åœ¨æ ¹ç›®å½•ï¼Œæ— æ³•å†å‘ä¸Šä¸€çº§ã€‚" << endl;
         }
         return;
     }
     if (!isValidName(dirname)) {
-        cout << "ÎŞĞ§µÄÄ¿Â¼Ãû¡£" << endl;
+        cout << "æ— æ•ˆçš„ç›®å½•åã€‚" << endl;
         return;
     }
     for (const auto& dir : currentDirectory->children) {
@@ -281,32 +287,32 @@ void changeDirectory(const string& dirname) {
             return;
         }
     }
-    cout << "Ä¿Â¼²»´æÔÚ¡£" << endl;
+    cout << "ç›®å½•ä¸å­˜åœ¨ã€‚" << endl;
 }
 
-// ÏÔÊ¾µ±Ç°Ä¿Â¼ÄÚÈİ
+// æ˜¾ç¤ºå½“å‰ç›®å½•å†…å®¹
 void showDirectory() {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
 
     if (currentDirectory == currentUser->rootDirectory) {
-        // µ±Ç°ÔÚÓÃ»§¸ùÄ¿Â¼ÏÂ£¬Êä³öËùÓĞ×ÓÄ¿Â¼Ãû
-        cout << "ÓÃ»§ " << currentUser->username << " ¸ùÄ¿Â¼ÏÂµÄÄ¿Â¼: ";
+        // å½“å‰åœ¨ç”¨æˆ·æ ¹ç›®å½•ä¸‹ï¼Œè¾“å‡ºæ‰€æœ‰å­ç›®å½•å
+        cout << "ç”¨æˆ· " << currentUser->username << " æ ¹ç›®å½•ä¸‹çš„ç›®å½•: ";
         for (const auto& dir : currentDirectory->children) {
             cout << dir->fileControlBlock->fileName << " ";
         }
         cout << endl;
     }
     else {
-        // µ±Ç°ÔÚ×ÓÄ¿Â¼ÏÂ£¬Êä³öµ±Ç°Ä¿Â¼Ãû¼°ÆäÏÂËùÓĞÎÄ¼şÃû
-        cout << "µ±Ç°Ä¿Â¼: " << currentDirectory->fileControlBlock->fileName << endl;
-        cout << "Ä¿Â¼: ";
+        // å½“å‰åœ¨å­ç›®å½•ä¸‹ï¼Œè¾“å‡ºå½“å‰ç›®å½•ååŠå…¶ä¸‹æ‰€æœ‰æ–‡ä»¶å
+        cout << "å½“å‰ç›®å½•: " << currentDirectory->fileControlBlock->fileName << endl;
+        cout << "ç›®å½•: ";
         for (const auto& dir : currentDirectory->children) {
             cout << dir->fileControlBlock->fileName << " ";
         }
-        cout << endl << "ÎÄ¼ş: ";
+        cout << endl << "æ–‡ä»¶: ";
         for (const auto& file : currentDirectory->files) {
             cout << file->fileName << " ";
         }
@@ -315,62 +321,68 @@ void showDirectory() {
 }
 
 
-// ´´½¨ÎÄ¼ş
+// åˆ›å»ºæ–‡ä»¶
 void createFile(const string& filename) {
+    lock_guard<mutex> lock(diskMutex);
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (!isValidName(filename)) {
-        cout << "ÎŞĞ§µÄÎÄ¼şÃû¡£" << endl;
+        cout << "æ— æ•ˆçš„æ–‡ä»¶åã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == filename) {
-            cout << "ÎÄ¼şÒÑ´æÔÚ¡£" << endl;
+            cout << "æ–‡ä»¶å·²å­˜åœ¨ã€‚" << endl;
             return;
         }
     }
     auto fcb = make_shared<FileControlBlock>();
     fcb->fileName = filename;
     fcb->isDirectory = false;
+    fcb->readWritePointer = 0; // åˆå§‹åŒ–è¯»å†™æŒ‡é’ˆ
+    fcb->isLocked = false; // åˆå§‹åŒ–é”å®šçŠ¶æ€
     currentDirectory->files.push_back(fcb);
-    cout << "ÎÄ¼ş´´½¨³É¹¦¡£" << endl;
+    cout << "æ–‡ä»¶åˆ›å»ºæˆåŠŸã€‚" << endl;
+    saveDisk(SAVE_PATH); // åˆ›å»ºæ–‡ä»¶åç«‹å³ä¿å­˜ç£ç›˜çŠ¶æ€
 }
 
 
-// É¾³ıÎÄ¼ş
+
+
+// åˆ é™¤æ–‡ä»¶
 void deleteFile(const string& filename) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (!isValidName(filename)) {
-        cout << "ÎŞĞ§µÄÎÄ¼şÃû¡£" << endl;
+        cout << "æ— æ•ˆçš„æ–‡ä»¶åã€‚" << endl;
         return;
     }
     for (auto it = currentDirectory->files.begin(); it != currentDirectory->files.end(); ++it) {
         if ((*it)->fileName == filename) {
             currentDirectory->files.erase(it);
-            cout << "ÎÄ¼şÉ¾³ı³É¹¦¡£" << endl;
+            cout << "æ–‡ä»¶åˆ é™¤æˆåŠŸã€‚" << endl;
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
 
-// Ğ´ÈëÎÄ¼ş
+// å†™å…¥æ–‡ä»¶
 void writeFile() {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (openFileName.empty()) {
-        cout << "µ±Ç°Ã»ÓĞ´ò¿ªµÄÎÄ¼ş¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰æ‰“å¼€çš„æ–‡ä»¶ã€‚" << endl;
         return;
     }
-    cout << "ÇëÊäÈëÄÚÈİ£¨ÊäÈë 'END' ±íÊ¾½áÊø£©:" << endl;
+    cout << "è¯·è¾“å…¥å†…å®¹ï¼ˆè¾“å…¥ 'END' è¡¨ç¤ºç»“æŸï¼‰:" << endl;
     string content;
     string line;
     while (true) {
@@ -383,110 +395,110 @@ void writeFile() {
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == openFileName) {
             file->content.insert(file->readWritePointer, content);
-            file->readWritePointer += content.size(); // ¸üĞÂ¶ÁĞ´Ö¸ÕëÎ»ÖÃ
-            cout << "ÎÄ¼şĞ´Èë³É¹¦¡£" << endl;
+            file->readWritePointer += content.size(); // æ›´æ–°è¯»å†™æŒ‡é’ˆä½ç½®
+            cout << "æ–‡ä»¶å†™å…¥æˆåŠŸã€‚" << endl;
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
 
 
 
-// ¶ÁÈ¡ÎÄ¼ş
+// è¯»å–æ–‡ä»¶
 void readFile() {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (openFileName.empty()) {
-        cout << "µ±Ç°Ã»ÓĞ´ò¿ªµÄÎÄ¼ş¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰æ‰“å¼€çš„æ–‡ä»¶ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == openFileName) {
             if (file->readWritePointer >= file->content.size()) {
-                cout << "ÎÄ¼şÄÚÈİ¶ÁÈ¡Íê±Ï¡£" << endl;
+                cout << "æ–‡ä»¶å†…å®¹è¯»å–å®Œæ¯•ã€‚" << endl;
             }
             else {
-                cout << "ÎÄ¼şÄÚÈİ:\n" << file->content.substr(file->readWritePointer) << endl;
-                file->readWritePointer = file->content.size(); // ¸üĞÂ¶ÁĞ´Ö¸ÕëÎ»ÖÃµ½ÎÄ¼şÎ²¶Ë
+                cout << "æ–‡ä»¶å†…å®¹:\n" << file->content.substr(file->readWritePointer) << endl;
+                file->readWritePointer = file->content.size(); // æ›´æ–°è¯»å†™æŒ‡é’ˆä½ç½®åˆ°æ–‡ä»¶å°¾ç«¯
             }
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
-// ÏÔÊ¾ËùÓĞÓÃ»§
+// æ˜¾ç¤ºæ‰€æœ‰ç”¨æˆ·
 void listUsers() {
     if (!diskData) {
-        cout << "´ÅÅÌÎ´³õÊ¼»¯¡£" << endl;
+        cout << "ç£ç›˜æœªåˆå§‹åŒ–ã€‚" << endl;
         return;
     }
-    cout << "ÏµÍ³ÓÃ»§ÁĞ±í:" << endl;
+    cout << "ç³»ç»Ÿç”¨æˆ·åˆ—è¡¨:" << endl;
     for (const auto& user : diskData->users) {
-        cout << "  ÓÃ»§Ãû: " << user.first << " ÃÜÂë: " << user.second->password << endl;
+        cout << "  ç”¨æˆ·å: " << user.first << " å¯†ç : " << user.second->password << endl;
     }
 }
 
-// ÅĞ¶ÏÎÄ¼şÃûÊÇ·ñºÏ·¨
+// åˆ¤æ–­æ–‡ä»¶åæ˜¯å¦åˆæ³•
 bool isValidName(const string& name) {
-    // ¼ì²éÃû³ÆÊÇ·ñÎª¿Õ»ò°üº¬²»ÔÊĞíµÄ×Ö·û
+    // æ£€æŸ¥åç§°æ˜¯å¦ä¸ºç©ºæˆ–åŒ…å«ä¸å…è®¸çš„å­—ç¬¦
     if (name.empty() || name.find_first_of("\\/:*?\"<>|") != string::npos) {
         return false;
     }
     return true;
 }
 
-// ¿½±´ÎÄ¼ş
+// æ‹·è´æ–‡ä»¶
 void copyFile(const string& filename) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == filename) {
             copiedFile = make_shared<FileControlBlock>(*file);
-            cout << "ÎÄ¼ş " << filename << " ÒÑ¸´ÖÆ¡£" << endl;
+            cout << "æ–‡ä»¶ " << filename << " å·²å¤åˆ¶ã€‚" << endl;
             return;
         }
     }
-    cout << "ÎÄ¼ş " << filename << " ²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ " << filename << " ä¸å­˜åœ¨ã€‚" << endl;
 }
 
-// Õ³ÌùÎÄ¼ş
+// ç²˜è´´æ–‡ä»¶
 void pasteFile() {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (!copiedFile) {
-        cout << "µ±Ç°Ã»ÓĞ±»¿½±´µÄÎÄ¼ş¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰è¢«æ‹·è´çš„æ–‡ä»¶ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == copiedFile->fileName) {
-            cout << "ÎÄ¼ş " << copiedFile->fileName << " ÒÑ´æÔÚ¡£ÇëÑ¡Ôñ: (1) ¸²¸Ç (2) È¡ÏûÕ³Ìù: ";
+            cout << "æ–‡ä»¶ " << copiedFile->fileName << " å·²å­˜åœ¨ã€‚è¯·é€‰æ‹©: (1) è¦†ç›– (2) å–æ¶ˆç²˜è´´: ";
             string choice;
             cin >> choice;
             if (choice == "1") {
                 *file = *copiedFile;
-                cout << "ÎÄ¼ş " << copiedFile->fileName << " ÒÑ¸²¸Ç¡£" << endl;
+                cout << "æ–‡ä»¶ " << copiedFile->fileName << " å·²è¦†ç›–ã€‚" << endl;
             }
             else {
-                cout << "Õ³ÌùÈ¡Ïû¡£" << endl;
+                cout << "ç²˜è´´å–æ¶ˆã€‚" << endl;
             }
             return;
         }
     }
-    // Èç¹ûÃ»ÓĞÖØÃûÎÄ¼ş£¬ÔòÖ±½ÓÕ³Ìù
+    // å¦‚æœæ²¡æœ‰é‡åæ–‡ä»¶ï¼Œåˆ™ç›´æ¥ç²˜è´´
     currentDirectory->files.push_back(make_shared<FileControlBlock>(*copiedFile));
-    cout << "ÎÄ¼ş " << copiedFile->fileName << " ÒÑÕ³Ìù¡£" << endl;
+    cout << "æ–‡ä»¶ " << copiedFile->fileName << " å·²ç²˜è´´ã€‚" << endl;
 }
 
-// »ñÈ¡µ±Ç°Â·¾¶
+// è·å–å½“å‰è·¯å¾„
 string getCurrentPath() {
     if (!currentUser) {
         return "";
@@ -503,14 +515,14 @@ string getCurrentPath() {
     return path;
 }
 
-// É¾³ıÄ¿Â¼¼°ÆäËùÓĞ×ÓÄ¿Â¼ºÍÎÄ¼ş
+// åˆ é™¤ç›®å½•åŠå…¶æ‰€æœ‰å­ç›®å½•å’Œæ–‡ä»¶
 void removeDirectory(const string& dirname) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (!isValidName(dirname)) {
-        cout << "ÎŞĞ§µÄÄ¿Â¼Ãû¡£" << endl;
+        cout << "æ— æ•ˆçš„ç›®å½•åã€‚" << endl;
         return;
     }
     auto it = std::find_if(currentDirectory->children.begin(), currentDirectory->children.end(),
@@ -518,24 +530,24 @@ void removeDirectory(const string& dirname) {
             return dir->fileControlBlock->fileName == dirname;
         });
     if (it == currentDirectory->children.end()) {
-        cout << "Ä¿Â¼²»´æÔÚ¡£" << endl;
+        cout << "ç›®å½•ä¸å­˜åœ¨ã€‚" << endl;
         return;
     }
     currentDirectory->children.erase(it);
-    cout << "Ä¿Â¼É¾³ı³É¹¦¡£" << endl;
+    cout << "ç›®å½•åˆ é™¤æˆåŠŸã€‚" << endl;
 }
 
-//ÒÆ¶¯ÎÄ¼ş
+//ç§»åŠ¨æ–‡ä»¶
 void moveFile(const string& filename, const string& destDir) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
 
     shared_ptr<FileControlBlock> fileToMove = nullptr;
     auto fileIt = currentDirectory->files.end();
 
-    // ²éÕÒÎÄ¼ş²¢ÒÆ³ı
+    // æŸ¥æ‰¾æ–‡ä»¶å¹¶ç§»é™¤
     for (auto it = currentDirectory->files.begin(); it != currentDirectory->files.end(); ++it) {
         if ((*it)->fileName == filename) {
             fileToMove = *it;
@@ -545,22 +557,22 @@ void moveFile(const string& filename, const string& destDir) {
     }
 
     if (!fileToMove) {
-        cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+        cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
         return;
     }
 
     shared_ptr<Directory> destDirectory = nullptr;
 
-    // ´¦ÀíÒÆ¶¯µ½ÉÏÒ»¼¶Ä¿Â¼µÄÇé¿ö
+    // å¤„ç†ç§»åŠ¨åˆ°ä¸Šä¸€çº§ç›®å½•çš„æƒ…å†µ
     if (destDir == "..") {
         destDirectory = currentDirectory->parentDirectory.lock();
         if (!destDirectory) {
-            cout << "µ±Ç°Ä¿Â¼ÒÑÊÇ¸ùÄ¿Â¼£¬ÎŞ·¨ÔÙÏòÉÏÒ»¼¶¡£" << endl;
+            cout << "å½“å‰ç›®å½•å·²æ˜¯æ ¹ç›®å½•ï¼Œæ— æ³•å†å‘ä¸Šä¸€çº§ã€‚" << endl;
             return;
         }
     }
     else {
-        // ²éÕÒÄ¿±êÄ¿Â¼
+        // æŸ¥æ‰¾ç›®æ ‡ç›®å½•
         for (const auto& dir : currentDirectory->children) {
             if (dir->fileControlBlock->fileName == destDir) {
                 destDirectory = dir;
@@ -569,107 +581,107 @@ void moveFile(const string& filename, const string& destDir) {
         }
 
         if (!destDirectory) {
-            cout << "Ä¿±êÄ¿Â¼²»´æÔÚ¡£" << endl;
+            cout << "ç›®æ ‡ç›®å½•ä¸å­˜åœ¨ã€‚" << endl;
             return;
         }
     }
 
-    // ÒÆ¶¯ÎÄ¼şµ½Ä¿±êÄ¿Â¼
+    // ç§»åŠ¨æ–‡ä»¶åˆ°ç›®æ ‡ç›®å½•
     destDirectory->files.push_back(fileToMove);
     currentDirectory->files.erase(fileIt);
 
-    cout << "ÎÄ¼şÒÆ¶¯³É¹¦¡£" << endl;
+    cout << "æ–‡ä»¶ç§»åŠ¨æˆåŠŸã€‚" << endl;
 }
 
 void openFile(const string& filename) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == filename) {
             if (file->isLocked) {
-                cout << "ÎÄ¼ş " << filename << " ÒÑ±»Ëø¶¨£¬ÎŞ·¨´ò¿ª¡£" << endl;
+                cout << "æ–‡ä»¶ " << filename << " å·²è¢«é”å®šï¼Œæ— æ³•æ‰“å¼€ã€‚" << endl;
                 return;
             }
             openFiles.insert(filename);
             openFileName = filename;
-            file->readWritePointer = 0; // ¶ÁÖ¸ÕëÖ¸ÏòÎÄ¼şÊ×¶Ë
-            cout << "ÎÄ¼ş " << filename << " ÒÑ´ò¿ª¡£" << endl;
+            file->readWritePointer = 0; // è¯»æŒ‡é’ˆæŒ‡å‘æ–‡ä»¶é¦–ç«¯
+            cout << "æ–‡ä»¶ " << filename << " å·²æ‰“å¼€ã€‚" << endl;
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
 
 void closeFile() {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (openFileName.empty()) {
-        cout << "µ±Ç°Ã»ÓĞ´ò¿ªµÄÎÄ¼ş¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰æ‰“å¼€çš„æ–‡ä»¶ã€‚" << endl;
         return;
     }
     openFiles.erase(openFileName);
     openFileName = "";
-    cout << "ÎÄ¼şÒÑ¹Ø±Õ¡£" << endl;
+    cout << "æ–‡ä»¶å·²å…³é—­ã€‚" << endl;
 }
 
 void lseekFile(int offset) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (openFileName.empty()) {
-        cout << "µ±Ç°Ã»ÓĞ´ò¿ªµÄÎÄ¼ş¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰æ‰“å¼€çš„æ–‡ä»¶ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == openFileName) {
             if ((int)file->readWritePointer + offset < 0 || file->readWritePointer + offset > file->content.size()) {
-                cout << "ÎŞĞ§µÄÒÆ¶¯Á¿¡£" << endl;
+                cout << "æ— æ•ˆçš„ç§»åŠ¨é‡ã€‚" << endl;
             }
             else {
                 file->readWritePointer += offset;
-                cout << "ÎÄ¼ş¶ÁĞ´Ö¸ÕëÒÑÒÆ¶¯µ½Î»ÖÃ " << file->readWritePointer << endl;
+                cout << "æ–‡ä»¶è¯»å†™æŒ‡é’ˆå·²ç§»åŠ¨åˆ°ä½ç½® " << file->readWritePointer << endl;
             }
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
 void flockFile(const string& filename) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == filename) {
             if (file->isLocked) {
                 file->isLocked = false;
-                cout << "ÎÄ¼ş " << filename << " ÒÑ½âËø¡£" << endl;
+                cout << "æ–‡ä»¶ " << filename << " å·²è§£é”ã€‚" << endl;
             }
             else {
                 file->isLocked = true;
-                cout << "ÎÄ¼ş " << filename << " ÒÑ¼ÓËø¡£" << endl;
+                cout << "æ–‡ä»¶ " << filename << " å·²åŠ é”ã€‚" << endl;
             }
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
 
 void headFile(int num) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (openFileName.empty()) {
-        cout << "µ±Ç°Ã»ÓĞ´ò¿ªµÄÎÄ¼ş¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰æ‰“å¼€çš„æ–‡ä»¶ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
@@ -684,16 +696,16 @@ void headFile(int num) {
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
 void tailFile(int num) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     if (openFileName.empty()) {
-        cout << "µ±Ç°Ã»ÓĞ´ò¿ªµÄÎÄ¼ş¡£" << endl;
+        cout << "å½“å‰æ²¡æœ‰æ‰“å¼€çš„æ–‡ä»¶ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
@@ -712,21 +724,21 @@ void tailFile(int num) {
             return;
         }
     }
-    cout << "ÎÄ¼ş²»´æÔÚ¡£" << endl;
+    cout << "æ–‡ä»¶ä¸å­˜åœ¨ã€‚" << endl;
 }
 
 void importFile(const string& localPath, const string& virtualName) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
 
-    // µ÷ÊÔĞÅÏ¢£ºÏÔÊ¾ÊÔÍ¼´ò¿ªµÄÎÄ¼şÂ·¾¶
-    cout << "ÊÔÍ¼´ò¿ª±¾µØÎÄ¼ş: " << localPath << endl;
+    // è°ƒè¯•ä¿¡æ¯ï¼šæ˜¾ç¤ºè¯•å›¾æ‰“å¼€çš„æ–‡ä»¶è·¯å¾„
+    cout << "è¯•å›¾æ‰“å¼€æœ¬åœ°æ–‡ä»¶: " << localPath << endl;
 
     ifstream inFile(localPath, ios::binary);
     if (!inFile) {
-        cout << "ÎŞ·¨´ò¿ª±¾µØÎÄ¼ş " << localPath << endl;
+        cout << "æ— æ³•æ‰“å¼€æœ¬åœ°æ–‡ä»¶ " << localPath << endl;
         return;
     }
 
@@ -736,12 +748,12 @@ void importFile(const string& localPath, const string& virtualName) {
     inFile.close();
 
     if (!isValidName(virtualName)) {
-        cout << "ÎŞĞ§µÄÎÄ¼şÃû¡£" << endl;
+        cout << "æ— æ•ˆçš„æ–‡ä»¶åã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == virtualName) {
-            cout << "ÎÄ¼şÒÑ´æÔÚ¡£" << endl;
+            cout << "æ–‡ä»¶å·²å­˜åœ¨ã€‚" << endl;
             return;
         }
     }
@@ -752,50 +764,46 @@ void importFile(const string& localPath, const string& virtualName) {
     fcb->readWritePointer = 0;
     fcb->isLocked = false;
     currentDirectory->files.push_back(fcb);
-    cout << "ÎÄ¼ş " << virtualName << " ÒÑ³É¹¦µ¼ÈëĞéÄâ´ÅÅÌµÄµ±Ç°Ä¿Â¼¡£" << endl;
+    cout << "æ–‡ä»¶ " << virtualName << " å·²æˆåŠŸå¯¼å…¥è™šæ‹Ÿç£ç›˜çš„å½“å‰ç›®å½•ã€‚" << endl;
 }
 
 
 
 void exportFile(const string& virtualName, const string& localPath) {
     if (!currentUser) {
-        cout << "ÇëÏÈµÇÂ¼¡£" << endl;
+        cout << "è¯·å…ˆç™»å½•ã€‚" << endl;
         return;
     }
     for (const auto& file : currentDirectory->files) {
         if (file->fileName == virtualName) {
             ofstream outFile(localPath + "\\" + virtualName, ios::binary);
             if (!outFile) {
-                cout << "ÎŞ·¨´´½¨±¾µØÎÄ¼ş " << localPath << "\\" << virtualName << endl;
+                cout << "æ— æ³•åˆ›å»ºæœ¬åœ°æ–‡ä»¶ " << localPath << "\\" << virtualName << endl;
                 return;
             }
             outFile << file->content;
             outFile.close();
-            cout << "ÎÄ¼ş " << virtualName << " ÒÑ³É¹¦µ¼³öµ½ " << localPath << endl;
+            cout << "æ–‡ä»¶ " << virtualName << " å·²æˆåŠŸå¯¼å‡ºåˆ° " << localPath << endl;
             return;
         }
     }
-    cout << "ÎÄ¼ş " << virtualName << " ²»´æÔÚÓÚĞéÄâ´ÅÅÌ¡£" << endl;
+    cout << "æ–‡ä»¶ " << virtualName << " ä¸å­˜åœ¨äºè™šæ‹Ÿç£ç›˜ã€‚" << endl;
 }
 
-// ÏÔÊ¾ÌáÊ¾·û
+// æ˜¾ç¤ºæç¤ºç¬¦
 void showPrompt() {
     cout << "[" << (currentUser ? currentUser->username + "@" : "") << getCurrentPath() << "] ";
 }
 
-// ÓÃ»§½»»¥Ïß³Ì
+// ç”¨æˆ·äº¤äº’çº¿ç¨‹
 void userInteraction() {
     string input;
     while (!exitFlag) {
-        {
-            lock_guard<mutex> lock(diskMutex);
-            //showPrompt();
-        }
-        getline(cin, input);
         showPrompt();
+        getline(cin, input);
         if (input == "exit") {
             {
-                //lock_guard<mutex> lock(diskMutex);
+                lock_guard<mutex> lock(diskMutex);
                 exitFlag = true;
                 commandQueue.push("exit");
                 cv.notify_one();
@@ -803,40 +811,38 @@ void userInteraction() {
             break;
         }
         {
-            //lock_guard<mutex> lock(diskMutex);
+            lock_guard<mutex> lock(diskMutex);
             commandQueue.push(input);
-            
             cv.notify_one();
         }
     }
 }
 
-// ´ÅÅÌ²Ù×÷Ïß³Ì
+// ç£ç›˜æ“ä½œçº¿ç¨‹
 void diskOperation() {
-    while (!exitFlag){
+    while (!exitFlag) {
         string command;
+        {
             unique_lock<mutex> lock(diskMutex);
             cv.wait(lock, [] { return !commandQueue.empty() || exitFlag; });
             if (exitFlag && commandQueue.empty()) break;
             command = commandQueue.front();
             commandQueue.pop();
             lock.unlock();
-            if (command.empty()) {
-                cout << "·Ç·¨ÃüÁî¡£ÇëÊäÈë\"help\"²é¿´¿ÉÓÃÃüÁî¡£\n";
-                continue;
-            }
+        }
         lock_guard<mutex> disklock(diskMutex);
-        loadDisk(SAVE_PATH);
+        //loadDisk(SAVE_PATH);
         vector<string> commandTokens = inputResolve(command);
         if (commandTokens.empty()) continue;
-       
+
         if (!openFileName.empty()) {
+            // Handle file operations
             if (commandTokens[0] == "read") readFile();
             else if (commandTokens[0] == "write") writeFile();
             else if (commandTokens[0] == "close") closeFile();
             else if (commandTokens[0] == "lseek") {
                 if (commandTokens.size() < 2) {
-                    cout << "ÓÃ·¨: lseek <ÒÆ¶¯Á¿>\n";
+                    cout << "ç”¨æ³•: lseek <ç§»åŠ¨é‡>\n";
                     continue;
                 }
                 int offset = stoi(commandTokens[1]);
@@ -844,7 +850,7 @@ void diskOperation() {
             }
             else if (commandTokens[0] == "head") {
                 if (commandTokens.size() < 2) {
-                    cout << "ÓÃ·¨: head <ĞĞÊı>\n";
+                    cout << "ç”¨æ³•: head <è¡Œæ•°>\n";
                     continue;
                 }
                 int num = stoi(commandTokens[1]);
@@ -852,14 +858,14 @@ void diskOperation() {
             }
             else if (commandTokens[0] == "tail") {
                 if (commandTokens.size() < 2) {
-                    cout << "ÓÃ·¨: tail <ĞĞÊı>\n";
+                    cout << "ç”¨æ³•: tail <è¡Œæ•°>\n";
                     continue;
                 }
                 int num = stoi(commandTokens[1]);
                 tailFile(num);
             }
             else {
-                cout << "µ±Ç°ÓĞÎÄ¼ş´ò¿ª£¬Ö»ÄÜÊ¹ÓÃread¡¢write¡¢close¡¢lseek¡¢headºÍtailÃüÁî¡£\n";
+                cout << "å½“å‰æœ‰æ–‡ä»¶æ‰“å¼€ï¼Œåªèƒ½ä½¿ç”¨ readã€writeã€closeã€lseekã€head å’Œ tail å‘½ä»¤ã€‚\n";
             }
             saveDisk(SAVE_PATH);
             continue;
@@ -867,35 +873,31 @@ void diskOperation() {
 
         if (commandTokens[0] == "register") {
             if (commandTokens.size() < 3) {
-                cout << "ÓÃ·¨: register <ÓÃ»§Ãû> <ÃÜÂë>\n";
+                cout << "ç”¨æ³•: register <ç”¨æˆ·å> <å¯†ç >\n";
                 continue;
             }
             registerUser(commandTokens[1], commandTokens[2]);
         }
         else if (commandTokens[0] == "login") {
             if (commandTokens.size() < 3) {
-                cout << "ÓÃ·¨: login <ÓÃ»§Ãû> <ÃÜÂë>\n";
+                cout << "ç”¨æ³•: login <ç”¨æˆ·å> <å¯†ç >\n";
                 continue;
             }
             loginUser(commandTokens[1], commandTokens[2]);
         }
         else if (commandTokens[0] == "logout") {
-            if (!openFileName.empty()) {
-                cout << "ÇëÏÈ¹Ø±ÕÎÄ¼şÔÙ×¢ÏúÓÃ»§¡£" << endl;
-                continue;
-            }
             logoutUser();
         }
         else if (commandTokens[0] == "mkdir") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: mkdir <Ä¿Â¼Ãû>\n";
+                cout << "ç”¨æ³•: mkdir <ç›®å½•å>\n";
                 continue;
             }
             makeDirectory(commandTokens[1]);
         }
         else if (commandTokens[0] == "cd") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: cd <Ä¿Â¼Ãû>\n";
+                cout << "ç”¨æ³•: cd <ç›®å½•å>\n";
                 continue;
             }
             changeDirectory(commandTokens[1]);
@@ -903,14 +905,14 @@ void diskOperation() {
         else if (commandTokens[0] == "dir") showDirectory();
         else if (commandTokens[0] == "create") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: create <ÎÄ¼şÃû>\n";
+                cout << "ç”¨æ³•: create <æ–‡ä»¶å>\n";
                 continue;
             }
             createFile(commandTokens[1]);
         }
         else if (commandTokens[0] == "delete") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: delete <ÎÄ¼şÃû>\n";
+                cout << "ç”¨æ³•: delete <æ–‡ä»¶å>\n";
                 continue;
             }
             deleteFile(commandTokens[1]);
@@ -919,7 +921,7 @@ void diskOperation() {
         else if (commandTokens[0] == "listUsers") listUsers();
         else if (commandTokens[0] == "copy") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: copy <ÎÄ¼şÃû>\n";
+                cout << "ç”¨æ³•: copy <æ–‡ä»¶å>\n";
                 continue;
             }
             copyFile(commandTokens[1]);
@@ -927,21 +929,21 @@ void diskOperation() {
         else if (commandTokens[0] == "paste") pasteFile();
         else if (commandTokens[0] == "rmdir") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: rmdir <Ä¿Â¼Ãû>\n";
+                cout << "ç”¨æ³•: rmdir <ç›®å½•å>\n";
                 continue;
             }
             removeDirectory(commandTokens[1]);
         }
         else if (commandTokens[0] == "move") {
             if (commandTokens.size() < 3) {
-                cout << "ÓÃ·¨: move <ÎÄ¼şÃû> <Ä¿±êÄ¿Â¼>\n";
+                cout << "ç”¨æ³•: move <æ–‡ä»¶å> <ç›®æ ‡ç›®å½•>\n";
                 continue;
             }
             moveFile(commandTokens[1], commandTokens[2]);
         }
         else if (commandTokens[0] == "open") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: open <ÎÄ¼şÃû>\n";
+                cout << "ç”¨æ³•: open <æ–‡ä»¶å>\n";
                 continue;
             }
             openFile(commandTokens[1]);
@@ -949,7 +951,7 @@ void diskOperation() {
         else if (commandTokens[0] == "close") closeFile();
         else if (commandTokens[0] == "lseek") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: lseek <ÒÆ¶¯Á¿>\n";
+                cout << "ç”¨æ³•: lseek <ç§»åŠ¨é‡>\n";
                 continue;
             }
             int offset = stoi(commandTokens[1]);
@@ -957,14 +959,14 @@ void diskOperation() {
         }
         else if (commandTokens[0] == "flock") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: flock <ÎÄ¼şÃû>\n";
+                cout << "ç”¨æ³•: flock <æ–‡ä»¶å>\n";
                 continue;
             }
             flockFile(commandTokens[1]);
         }
         else if (commandTokens[0] == "head") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: head <ĞĞÊı>\n";
+                cout << "ç”¨æ³•: head <è¡Œæ•°>\n";
                 continue;
             }
             int num = stoi(commandTokens[1]);
@@ -972,7 +974,7 @@ void diskOperation() {
         }
         else if (commandTokens[0] == "tail") {
             if (commandTokens.size() < 2) {
-                cout << "ÓÃ·¨: tail <ĞĞÊı>\n";
+                cout << "ç”¨æ³•: tail <è¡Œæ•°>\n";
                 continue;
             }
             int num = stoi(commandTokens[1]);
@@ -980,23 +982,24 @@ void diskOperation() {
         }
         else if (commandTokens[0] == "import") {
             if (commandTokens.size() < 3) {
-                cout << "ÓÃ·¨: import <±¾µØÎÄ¼şÂ·¾¶> <ĞéÄâ´ÅÅÌÎÄ¼şÃû>\n";
+                cout << "ç”¨æ³•: import <æœ¬åœ°æ–‡ä»¶è·¯å¾„> <è™šæ‹Ÿç£ç›˜æ–‡ä»¶å>\n";
                 continue;
             }
             importFile(commandTokens[1], commandTokens[2]);
         }
         else if (commandTokens[0] == "export") {
             if (commandTokens.size() < 3) {
-                cout << "ÓÃ·¨: export <ĞéÄâ´ÅÅÌÎÄ¼şÃû> <±¾µØÄ¿Â¼Â·¾¶>\n";
+                cout << "ç”¨æ³•: export <è™šæ‹Ÿç£ç›˜æ–‡ä»¶å> <æœ¬åœ°ç›®å½•è·¯å¾„>\n";
                 continue;
             }
             exportFile(commandTokens[1], commandTokens[2]);
         }
         else {
-            cout << "·Ç·¨ÃüÁî¡£ÇëÊäÈë\"help\"²é¿´¿ÉÓÃÃüÁî¡£\n";
+            cout << "éæ³•å‘½ä»¤ã€‚è¯·è¾“å…¥\"help\"æŸ¥çœ‹å¯ç”¨å‘½ä»¤ã€‚\n";
         }
 
         saveDisk(SAVE_PATH);
     }
 }
+
 
