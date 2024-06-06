@@ -1,11 +1,14 @@
 #include "File_System.h"
 
 int main() {
+    cout << "欢迎使用虚拟文件系统！\n";
+    cout << "当前时间: " << getCurrentTime() << endl;
     cout << "是否初始化一个新的磁盘? (yes/no): ";
     string response;
     cin >> response;
     if (response == "yes") {
         initDisk();
+        //saveDisk(SAVE_PATH); // 初始化后立即保存磁盘状态
     }
     else {
         if (!loadDisk(SAVE_PATH)) {

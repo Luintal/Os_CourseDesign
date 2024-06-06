@@ -6,11 +6,9 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <sstream>
 #include <memory>
 #include <map>
 #include <set>
-#include <sstream> 
 #include <list>
 #include <ctime>
 #include <iomanip>
@@ -18,6 +16,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
+#include <sstream>
 
 using namespace std;
 
@@ -31,15 +30,18 @@ struct FileControlBlock {//文件控制块
 	string fileName;
 	bool isDirectory;
 	string content;
-	size_t readWritePointer; // 新增：文件读写指针
+	size_t readWritePointer; // 文件读写指针
 	bool isLocked; // 文件锁定状态
+
+	FileControlBlock(const string& name = "", bool dir = false, const string& cont = "", size_t rwPointer = 0, bool locked = false)
+		: fileName(name), isDirectory(dir), content(cont), readWritePointer(rwPointer), isLocked(locked) {}
 };
 
 
 struct Directory {//目录
-	shared_ptr<FileControlBlock> fileControlBlock;//目录的文件控制块
-	vector<shared_ptr<Directory>> children;//子目录
-	vector<shared_ptr<FileControlBlock>> files;//文件
+	shared_ptr<FileControlBlock> fileControlBlock; // 目录的文件控制块
+	vector<shared_ptr<Directory>> children; // 子目录
+	vector<shared_ptr<FileControlBlock>> files; // 文件
 	weak_ptr<Directory> parentDirectory; // 父目录
 };
 
@@ -50,8 +52,8 @@ struct User {//用户
 };
 
 struct Disk {//磁盘
-	shared_ptr<Directory> rootDirectory;//根目录(新加)
-	map<string, shared_ptr<User>> users;//用户
+	shared_ptr<Directory> rootDirectory; // 根目录
+	map<string, shared_ptr<User>> users; // 用户
 };
 
 // 全局变量声明
@@ -98,7 +100,8 @@ void tailFile(int num); // 显示文件尾巴上的 num 行
 void importFile(const string& localPath, const string& virtualName);
 void exportFile(const string& virtualName, const string& localPath);
 void userInteraction();//用户交互
-void diskOperation();
-
+void diskOperation();//磁盘交互
+void reloadDisk(const string& path);//重新加载磁盘
+string getCurrentTime();//获取当前时间
 
 #endif // FILE_SYSTEM_H
